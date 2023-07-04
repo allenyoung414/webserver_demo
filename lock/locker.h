@@ -1,25 +1,23 @@
-#ifndef cond_H
-#define cond_H
+#ifndef LOCKER_H
+#define LOCKER_H
 
 #include <exception>
 #include <pthread.h>
 #include <semaphore.h>
 
-class sem{
-    private:
-        sem_t m_sem;
-    
-    public:
+class sem
+{
+public:
     sem()
     {
-        if(sem_init(&m_sem, 0, 0) != 0)
+        if (sem_init(&m_sem, 0, 0) != 0)
         {
             throw std::exception();
         }
     }
     sem(int num)
     {
-        if(sem_init(&m_sem, 0, num) != 0)
+        if (sem_init(&m_sem, 0, num) != 0)
         {
             throw std::exception();
         }
@@ -36,21 +34,21 @@ class sem{
     {
         return sem_post(&m_sem) == 0;
     }
-};
-class cond
-{
+
 private:
-    /* data */
-    pthread_mutex_t m_mutex;
+    sem_t m_sem;
+};
+class locker
+{
 public:
-    cond()
+    locker()
     {
         if (pthread_mutex_init(&m_mutex, NULL) != 0)
         {
             throw std::exception();
         }
     }
-    ~cond()
+    ~locker()
     {
         pthread_mutex_destroy(&m_mutex);
     }
@@ -66,35 +64,52 @@ public:
     {
         return &m_mutex;
     }
+
+private:
+    pthread_mutex_t m_mutex;
 };
 class cond
 {
-private:
-    /* data */
-    pthread_cond_t m_cond;
 public:
-    cond(/* args */);
-    ~cond();
-    bool wait(pthread_mutex_t *m_mutex)
+    cond()
     {
-        int ret = 0;
-        ret = pthread_cond_wait(&m_cond, m_mutex);
-        return ret == 0;
-    }
-};
-
-cond::cond(/* args */)
-{
-    if (pthread_cond_init(&m_cond, NULL) != 0)
+        if (pthread_cond_init(&m_cond, NULL) != 0)
         {
             //pthread_mutex_destroy(&m_mutex);
             throw std::exception();
         }
-}
+    }
+    ~cond()
+    {
+        pthread_cond_destroy(&m_cond);
+    }
+    bool wait(pthread_mutex_t *m_mutex)
+    {
+        int ret = 0;
+        //pthread_mutex_lock(&m_mutex);
+        ret = pthread_cond_wait(&m_cond, m_mutex);
+        //pthread_mutex_unlock(&m_mutex);
+        return ret == 0;
+    }
+    bool timewait(pthread_mutex_t *m_mutex, struct timespec t)
+    {
+        int ret = 0;
+        //pthread_mutex_lock(&m_mutex);
+        ret = pthread_cond_timedwait(&m_cond, m_mutex, &t);
+        //pthread_mutex_unlock(&m_mutex);
+        return ret == 0;
+    }
+    bool signal()
+    {
+        return pthread_cond_signal(&m_cond) == 0;
+    }
+    bool broadcast()
+    {
+        return pthread_cond_broadcast(&m_cond) == 0;
+    }
 
-cond::~cond()
-{
-    pthread_cond_destroy(&m_cond);
-}
-
+private:
+    //static pthread_mutex_t m_mutex;
+    pthread_cond_t m_cond;
+};
 #endif
